@@ -81,3 +81,24 @@ async def sensor_stream(websocket: WebSocket):
             await asyncio.sleep(settings.sensor_interval_seconds)
     except WebSocketDisconnect:
         pass
+
+
+@app.websocket("/ws/joystick")
+async def joystick_stream(websocket: WebSocket):
+    await websocket.accept()
+    last_timestamp: str | None = None
+    try:
+        while True:
+            events = service.events()
+            if events and events[0].timestamp != last_timestamp:
+                new_events = []
+                for event in events:
+                    if event.timestamp == last_timestamp:
+                        break
+                    new_events.append(event)
+                for event in reversed(new_events):
+                    await websocket.send_json(event.model_dump())
+                last_timestamp = events[0].timestamp
+            await asyncio.sleep(0.05)
+    except WebSocketDisconnect:
+        pass

@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
-import { api, sensorSocketUrl } from './api'
+import { api, joystickSocketUrl, sensorSocketUrl } from './api'
 import type { JoystickEvent, RGB, SensorSnapshot, Vector3 } from './types'
 
 const black: RGB = [0, 0, 0]
@@ -56,8 +56,24 @@ export default function App() {
       socket.onerror = () => socket?.close()
     }
     connect()
-    const joystickTimer = window.setInterval(() => api.joystick().then(setEvents).catch(() => undefined), 120)
-    return () => { active = false; clearTimeout(retry); clearInterval(joystickTimer); socket?.close() }
+    return () => { active = false; clearTimeout(retry); socket?.close() }
+  }, [])
+
+  useEffect(() => {
+    let socket: WebSocket | undefined
+    let retry: number
+    let active = true
+    const connect = () => {
+      socket = new WebSocket(joystickSocketUrl)
+      socket.onmessage = event => {
+        const joystickEvent = JSON.parse(event.data) as JoystickEvent
+        setEvents(current => [joystickEvent, ...current].slice(0, 50))
+      }
+      socket.onclose = () => { if (active) retry = window.setTimeout(connect, 2000) }
+      socket.onerror = () => socket?.close()
+    }
+    connect()
+    return () => { active = false; clearTimeout(retry); socket?.close() }
   }, [])
 
   useEffect(() => { if (data?.matrix?.length === 64) setPixels(data.matrix) }, [data?.matrix])

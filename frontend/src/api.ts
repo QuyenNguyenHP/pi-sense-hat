@@ -1,4 +1,4 @@
-import type { JoystickEvent, RGB } from './types'
+import type { RGB } from './types'
 
 export const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/$/, '')
 
@@ -12,9 +12,9 @@ export async function request(path: string, options?: RequestInit) {
 }
 
 export const sensorSocketUrl = `${API_URL.replace(/^http/, 'ws')}/ws/sensors`
+export const joystickSocketUrl = `${API_URL.replace(/^http/, 'ws')}/ws/joystick`
 
 export const api = {
-  joystick: () => request('/api/joystick') as Promise<JoystickEvent[]>,
   message: (text: string, textColor: RGB, backgroundColor: RGB, scrollSpeed: number, repeat: boolean) =>
     request('/api/matrix/message', {
       method: 'POST',
