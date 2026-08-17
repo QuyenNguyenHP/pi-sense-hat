@@ -1,7 +1,7 @@
 import asyncio
 from contextlib import asynccontextmanager
 
-from fastapi import BackgroundTasks, FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
@@ -43,15 +43,15 @@ def joystick():
 
 
 @app.post("/api/matrix/message", status_code=202)
-def message(command: TextCommand, background_tasks: BackgroundTasks):
-    background_tasks.add_task(
-        service.show_message,
+def message(command: TextCommand):
+    service.show_message(
         command.text,
         command.text_color,
         command.background_color,
         command.scroll_speed,
+        command.repeat,
     )
-    return {"accepted": True}
+    return {"accepted": True, "repeat": command.repeat}
 
 
 @app.post("/api/matrix/clear")
@@ -81,4 +81,3 @@ async def sensor_stream(websocket: WebSocket):
             await asyncio.sleep(settings.sensor_interval_seconds)
     except WebSocketDisconnect:
         pass
-

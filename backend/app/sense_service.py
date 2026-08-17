@@ -1,4 +1,3 @@
-import asyncio
 import math
 import random
 import threading
@@ -17,6 +16,8 @@ class SenseService:
         self._rotation = 0
         self._events: deque[JoystickEvent] = deque(maxlen=50)
         self._lock = threading.Lock()
+        self._message_stop = threading.Event()
+        self._message_thread: threading.Thread | None = None
 
         if simulator_setting.lower() not in {"true", "1", "yes"}:
             try:
@@ -76,18 +77,30 @@ class SenseService:
             matrix=self._pixels.copy(),
         )
 
-    async def show_message(self, text: str, text_color: tuple[int, int, int], background_color: tuple[int, int, int], scroll_speed: float) -> None:
-        if self._sense is not None:
-            await asyncio.to_thread(self._sense.show_message, text, scroll_speed, text_color, background_color)
-            return
+    def show_message(self, text: str, text_color: tuple[int, int, int], background_color: tuple[int, int, int], scroll_speed: float, repeat: bool = False) -> None:
+        self.stop_message()
+        self._message_stop = threading.Event()
 
-        # Keep the simulator responsive while visually acknowledging the command.
-        with self._lock:
-            color = tuple(text_color)
-            self._pixels = [color if (i + len(text)) % 3 == 0 else tuple(background_color) for i in range(64)]
-        await asyncio.sleep(min(len(text) * scroll_speed, 2.0))
+        def run() -> None:
+            while not self._message_stop.is_set():
+                if self._sense is not None:
+                    self._sense.show_message(text, scroll_speed, text_color, background_color)
+                else:
+                    with self._lock:
+                        color = tuple(text_color)
+                        self._pixels = [color if (i + len(text)) % 3 == 0 else tuple(background_color) for i in range(64)]
+                    self._message_stop.wait(min(len(text) * scroll_speed, 2.0))
+                if not repeat:
+                    break
+
+        self._message_thread = threading.Thread(target=run, name="sense-message", daemon=True)
+        self._message_thread.start()
+
+    def stop_message(self) -> None:
+        self._message_stop.set()
 
     def clear(self) -> None:
+        self.stop_message()
         if self._sense is not None:
             self._sense.clear()
         with self._lock:
@@ -99,6 +112,7 @@ class SenseService:
         self._rotation = rotation
 
     def set_pixels(self, pixels: list[tuple[int, int, int]]) -> None:
+        self.stop_message()
         normalized = [tuple(pixel) for pixel in pixels]
         if self._sense is not None:
             self._sense.set_pixels(normalized)
@@ -107,4 +121,3 @@ class SenseService:
 
     def events(self) -> list[JoystickEvent]:
         return list(reversed(self._events))
-

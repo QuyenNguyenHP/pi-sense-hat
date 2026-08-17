@@ -37,6 +37,7 @@ class TextCommand(BaseModel):
     text_color: RGB = (255, 255, 255)
     background_color: RGB = (0, 0, 0)
     scroll_speed: float = Field(default=0.08, ge=0.01, le=1.0)
+    repeat: bool = False
 
 
 class RotationCommand(BaseModel):

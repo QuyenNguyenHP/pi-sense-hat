@@ -38,6 +38,7 @@ export default function App() {
   const [textColor, setTextColor] = useState('#65fbd2')
   const [backgroundColor, setBackgroundColor] = useState('#000000')
   const [speed, setSpeed] = useState(.08)
+  const [repeatMessage, setRepeatMessage] = useState(false)
   const [paintColor, setPaintColor] = useState('#ff4d8d')
   const [pixels, setPixels] = useState<RGB[]>(emptyPixels)
   const [events, setEvents] = useState<JoystickEvent[]>([])
@@ -55,7 +56,7 @@ export default function App() {
       socket.onerror = () => socket?.close()
     }
     connect()
-    const joystickTimer = window.setInterval(() => api.joystick().then(setEvents).catch(() => undefined), 1500)
+    const joystickTimer = window.setInterval(() => api.joystick().then(setEvents).catch(() => undefined), 120)
     return () => { active = false; clearTimeout(retry); clearInterval(joystickTimer); socket?.close() }
   }, [])
 
@@ -67,8 +68,10 @@ export default function App() {
   }
   const submitMessage = (event: FormEvent) => {
     event.preventDefault()
-    perform(() => api.message(message, hexToRgb(textColor), hexToRgb(backgroundColor), speed), 'Message sent to the matrix')
+    perform(() => api.message(message, hexToRgb(textColor), hexToRgb(backgroundColor), speed, repeatMessage), repeatMessage ? 'Message is looping' : 'Message sent to the matrix')
   }
+
+  const activeDirection = events[0]?.action !== 'released' ? events[0]?.direction ?? '' : ''
 
   return <main>
     <header><div><p className="eyebrow">RASPBERRY PI / SENSE HAT</p><h1>Mission Control</h1></div><div className={`status ${connected ? 'online' : ''}`}><i />{connected ? 'Live' : 'Connecting'}<small>{updated}</small></div></header>
@@ -89,11 +92,10 @@ export default function App() {
 
     <section className="control-grid">
       <article className="panel led-panel"><div><p className="eyebrow">LED MATRIX</p><h2>Pixel studio</h2><p>Click pixels to paint or erase, then send the frame.</p></div><Matrix pixels={pixels} editable color={hexToRgb(paintColor)} onChange={setPixels} /><div className="matrix-tools"><label>Paint <input type="color" value={paintColor} onChange={e => setPaintColor(e.target.value)} /></label><button onClick={() => setPixels(emptyPixels())}>Reset canvas</button><button className="primary" onClick={() => perform(() => api.pixels(pixels), 'Pixel frame sent')}>Send pixels</button></div></article>
-      <article className="panel controls"><p className="eyebrow">MESSAGE</p><h2>Write to the Pi</h2><form onSubmit={submitMessage}><label>Text<input value={message} maxLength={160} onChange={e => setMessage(e.target.value)} /></label><div className="field-row"><label>Text color<input type="color" value={textColor} onChange={e => setTextColor(e.target.value)} /></label><label>Background<input type="color" value={backgroundColor} onChange={e => setBackgroundColor(e.target.value)} /></label></div><label>Scroll speed <output>{speed.toFixed(2)}s</output><input type="range" min=".01" max=".3" step=".01" value={speed} onChange={e => setSpeed(Number(e.target.value))} /></label><button className="primary" type="submit">Scroll message</button></form><div className="actions"><button onClick={() => perform(api.clear, 'Matrix cleared')}>Clear matrix</button>{[0, 90, 180, 270].map(r => <button key={r} onClick={() => perform(() => api.rotate(r), `Rotated to ${r}°`)}>{r}°</button>)}</div></article>
+      <article className="panel controls"><p className="eyebrow">MESSAGE</p><h2>Write to the Pi</h2><form onSubmit={submitMessage}><label>Text<input value={message} maxLength={160} onChange={e => setMessage(e.target.value)} /></label><div className="field-row"><label>Text color<input type="color" value={textColor} onChange={e => setTextColor(e.target.value)} /></label><label>Background<input type="color" value={backgroundColor} onChange={e => setBackgroundColor(e.target.value)} /></label></div><label>Scroll speed <output>{speed.toFixed(2)}s</output><input type="range" min=".01" max=".3" step=".01" value={speed} onChange={e => setSpeed(Number(e.target.value))} /></label><label className="check"><input type="checkbox" checked={repeatMessage} onChange={e => setRepeatMessage(e.target.checked)} /><span>Run continuously</span></label><button className="primary" type="submit">Scroll message</button></form><div className="actions"><button onClick={() => perform(api.clear, 'Matrix cleared')}>Clear matrix</button>{[0, 90, 180, 270].map(r => <button key={r} onClick={() => perform(() => api.rotate(r), `Rotated to ${r}°`)}>{r}°</button>)}</div></article>
     </section>
 
-    <section className="panel joystick"><div><p className="eyebrow">JOYSTICK</p><h2>Recent input</h2></div>{events.length ? <ol>{events.slice(0, 8).map((event, index) => <li key={`${event.timestamp}-${index}`}><b>{event.direction}</b><span>{event.action}</span><time>{new Date(event.timestamp).toLocaleTimeString()}</time></li>)}</ol> : <p className="muted">Move or press the Sense HAT joystick to see events here.</p>}</section>
+    <section className="panel joystick"><div><p className="eyebrow">JOYSTICK</p><h2>Live controller</h2><div className="dpad" aria-label={`Joystick ${activeDirection || 'idle'}`}><i className={`up ${activeDirection === 'up' ? 'active' : ''}`}>▲</i><i className={`left ${activeDirection === 'left' ? 'active' : ''}`}>◀</i><i className={`middle ${activeDirection === 'middle' ? 'active' : ''}`}>●</i><i className={`right ${activeDirection === 'right' ? 'active' : ''}`}>▶</i><i className={`down ${activeDirection === 'down' ? 'active' : ''}`}>▼</i></div></div>{events.length ? <ol>{events.slice(0, 8).map((event, index) => <li key={`${event.timestamp}-${index}`}><b>{event.direction}</b><span>{event.action}</span><time>{new Date(event.timestamp).toLocaleTimeString()}</time></li>)}</ol> : <p className="muted">Move or press the Sense HAT joystick to see events here.</p>}</section>
     {notice && <div className="toast">{notice}</div>}
   </main>
 }
-
