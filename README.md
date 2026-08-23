@@ -57,4 +57,3 @@ The static output is written to `frontend/dist` and can be hosted by any static 
 - Allow TCP port `8000` through the Pi firewall.
 - Set `CORS_ORIGINS` to the frontend origins in production, separated by commas.
 - If the frontend is served over HTTPS, put the API behind HTTPS too; browsers block insecure API/WebSocket calls from secure pages.
-
